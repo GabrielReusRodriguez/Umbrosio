@@ -109,25 +109,44 @@ modo_pipe(){
     llamada_llm "${prompt}${prompt:+${salto}}${input}"
 }
 
-# Instala el alias para poder usarlo como pipe
+# Quita de ~/.bash_aliases una funcion marcada con "# Alias installed"
+quitar_funcion_alias(){
+    local nombre="$1"
+    local fichero="$2"
+    local tmp
+    [ -f "${fichero}" ] || return 0
+    tmp="$(mktemp)"
+    awk -v n="${nombre}() { # Alias installed" '
+        $0 == n {skip=1; next}
+        skip && /^}/ {skip=0; next}
+        skip {next}
+        {print}
+    ' "${fichero}" > "${tmp}" && mv "${tmp}" "${fichero}"
+}
+
+# Instala umbrosio en ~/.bash_aliases para poder invocarlo sin copiarlo a PATH
 install_alias(){
-    # Si el script está instalado en el sistema lo invocamos por su nombre,
-    # si no, usamos la ruta desde la que se está ejecutando.
+    # Siempre la ruta absoluta: si la funcion se llamara umbrosio y el comando
+    # tambien, usar solo el nombre provocaria recursion.
     local comando
-    if command -v llm > /dev/null 2>&1; then
-        comando="llm"
-    else
-        comando="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-    fi
+    comando="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
     local alias="# Definimos los alias del usuario
 umbrosio() { # Alias installed
-    ${comando} --pipe -- \"\$@\"
+    \"${comando}\" \"\$@\"
 }"
     # Si no existe el .bash_aliases, lo creamos si existe, solo modificará la fecha y hora de actualziacion
     touch ~/.bash_aliases
-    # Checkear si está instalado el alias. SI no lo está lo instalamos.
-    grep -q "umbrosio() { # Alias installed" ~/.bash_aliases && echo "El alias ya está instalado" || echo -e "$alias" >> ~/.bash_aliases
+
+    # Si ya habia una funcion umbrosio (por ejemplo la del modo pipe antiguo),
+    # la sustituimos para que no se pise con el comando.
+    if grep -q "umbrosio() { # Alias installed" ~/.bash_aliases; then
+        quitar_funcion_alias "umbrosio" ~/.bash_aliases
+        echo "Se ha actualizado el alias umbrosio"
+    else
+        echo "Se ha instalado el alias umbrosio"
+    fi
+    echo -e "$alias" >> ~/.bash_aliases
 
     # El alias se llamaba mistral en versiones anteriores, avisamos para que lo borre.
     if grep -q "mistral() { # Alias installed" ~/.bash_aliases; then
@@ -136,21 +155,24 @@ umbrosio() { # Alias installed
 }
 
 help(){
-    local ayuda="llm_ask
+    local ayuda="umbrosio
 --------
     Script para integrar llms con bash.
-    Usage: llm_ask [OPCIONES]
+    Usage: umbrosio [OPCIONES]
 
     -a, --ask TEXTO             Realiza una pregunta genérica
     -e, --explain COMANDO       Explica un comando de Linux
     -s, --create-script DESC    Genera un script de Bash
     -P, --pipe [TEXTO]          Lee la entrada estándar y la envía al llm
-    -i, --install               Instala el alias 'umbrosio' para usarlo como pipe
+    -i, --install               Instala umbrosio en ~/.bash_aliases
     -p, --provider PROVEEDOR    Proveedor a usar: lemonade (por defecto) o mistral
     -m, --model MODELO          Modelo a usar
     -k, --api-key CLAVE         Api key del proveedor
     -u, --url URL               Url del servidor del llm
     -h, --help                  Muestra esta ayuda
+
+    Si llega texto por la entrada estándar y no se indica otra acción,
+    se usa el modo pipe.
 
     Variables de entorno:
     LLM_PROVIDER, LLM_URL, LLM_MODEL, LLM_API_KEY
@@ -260,6 +282,12 @@ if [ "$action" = 'create_script' ]; then
 fi
 
 if [ "$action" = 'pipe' ]; then
+    modo_pipe "$@"
+    exit 0
+fi
+
+# Si no se ha indicado accion pero hay datos en stdin, usamos el modo pipe
+if [ -z "$action" ] && [ ! -t 0 ]; then
     modo_pipe "$@"
     exit 0
 fi

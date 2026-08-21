@@ -9,7 +9,7 @@
 - ✅ Realizar consultas genéricas a un servidor Lemonade o a Mistral AI
 - ✅ Explicar comandos de Linux
 - ✅ Generar scripts de Bash automáticamente
-- ✅ Instalar alias para uso como pipe
+- ✅ Instalar el comando `umbrosio` para usarlo como pipe
 - ✅ Integración nativa con la terminal
 - ✅ Configuración personalizable
 
@@ -83,12 +83,12 @@ source ~/.bashrc
 
 2. Haz el script ejecutable:
    ```bash
-   chmod +x src/llm_ask.sh
+   chmod +x src/umbrosio
    ```
 
 3. Ejecuta directamente:
    ```bash
-   ./src/llm_ask.sh -h
+   ./src/umbrosio -h
    ```
 
 #### Opción B: Instalación sistema (recomendado)
@@ -99,41 +99,42 @@ Ejecuta el script de instalación:
 ./install/install.sh
 ```
 
-Esto copiará el script a `/usr/local/bin/llm` para que esté disponible globalmente.
+Esto copiará el script a `/usr/local/bin/umbrosio` para que esté disponible globalmente.
 
 ### 3. Instalar alias (opcional)
 
-Para instalar el alias `umbrosio` que permite usar el script como pipe:
+Si no has copiado el script a `/usr/local/bin`, puedes instalar `umbrosio` en tu `~/.bash_aliases` para invocarlo desde cualquier sitio:
 
 ```bash
-llm_ask.sh --install
+./src/umbrosio --install
 # o
-llm_ask.sh -i
+./src/umbrosio -i
 ```
 
-Esto añadirá el alias a tu `~/.bash_aliases`. Necesitarás recargar tu terminal:
+Necesitarás recargar tu terminal:
 
 ```bash
 source ~/.bash_aliases
 ```
 
-> **Nota:** en versiones anteriores este alias se llamaba `mistral`. Si ya lo tenías
+> **Nota:** en versiones anteriores el alias de pipe se llamaba `mistral`. Si ya lo tenías
 > instalado, el script te avisará para que borres a mano la función `mistral()` de
-> tu `~/.bash_aliases`.
+> tu `~/.bash_aliases`. Si tenías un alias `umbrosio` que forzaba el modo pipe,
+> `--install` lo sustituye para que no se pise con el comando.
 
 ## 📖 Uso
 
 ### Comandos disponibles
 
 ```
-llm_ask [OPCIONES]
+umbrosio [OPCIONES]
 
 Opciones:
   -a, --ask TEXT             Realiza una pregunta genérica
   -e, --explain COMMAND      Explica un comando de Linux
   -s, --create-script DESC   Genera un script de Bash
   -P, --pipe [TEXT]          Lee la entrada estándar y la envía al LLM
-  -i, --install              Instala el alias para pipe
+  -i, --install              Instala umbrosio en ~/.bash_aliases
   -p, --provider PROVIDER    Proveedor a usar: lemonade (por defecto) o mistral
   -m, --model MODEL          Modelo a usar
   -k, --api-key KEY          API key del proveedor
@@ -147,30 +148,30 @@ Opciones:
 
 ```bash
 # Pregunta directa
-llm_ask.sh --ask "¿Cómo funciona git rebase?"
+umbrosio --ask "¿Cómo funciona git rebase?"
 
 # o
-llm_ask.sh -a "Explica el concepto de virtualización"
+umbrosio -a "Explica el concepto de virtualización"
 ```
 
 #### 📚 Explicar un comando de Linux
 
 ```bash
 # Explicar comando ls
-llm_ask.sh --explain "ls -la"
+umbrosio --explain "ls -la"
 
 # o
-llm_ask.sh -e "grep -r pattern ."
+umbrosio -e "grep -r pattern ."
 ```
 
 #### 💻 Generar un script de Bash
 
 ```bash
 # Generar un script de backup
-llm_ask.sh --create-script "crear un script de backup de bases de datos MySQL"
+umbrosio --create-script "crear un script de backup de bases de datos MySQL"
 
 # o
-llm_ask.sh -s "generar un script que monitoree el uso de CPU"
+umbrosio -s "generar un script que monitoree el uso de CPU"
 ```
 
 #### 🍋 Usar una LLM hosteada en un servidor Lemonade
@@ -179,13 +180,13 @@ Es el proveedor por defecto, así que basta con tener sus variables de entorno
 exportadas:
 
 ```bash
-llm_ask.sh --ask "¿Qué es una NPU?"
+umbrosio --ask "¿Qué es una NPU?"
 ```
 
 También puedes informar el servidor, la api key y el modelo por parámetro:
 
 ```bash
-llm_ask.sh -u "http://mi-servidor:8000" \
+umbrosio -u "http://mi-servidor:8000" \
     -k "tu_api_key_de_lemonade" \
     -m "Qwen3-0.6B-GGUF" \
     -a "Resume qué es Lemonade Server"
@@ -199,19 +200,18 @@ por ti.
 #### 🌩️ Usar Mistral AI
 
 ```bash
-llm_ask.sh --provider mistral --ask "¿Cómo funciona git rebase?"
+umbrosio --provider mistral --ask "¿Cómo funciona git rebase?"
 
 # o con la api key y el modelo por parámetro
-llm_ask.sh -p mistral -k "tu_api_key" -m "mistral-small" -a "Explica el concepto de virtualización"
+umbrosio -p mistral -k "tu_api_key" -m "mistral-small" -a "Explica el concepto de virtualización"
 ```
 
-#### 🔗 Usar como pipe (requiere alias instalado)
+#### 🔗 Usar como pipe
+
+Si llega texto por la entrada estándar, `umbrosio` lo envía al LLM. No hace falta
+instalar ningún alias aparte:
 
 ```bash
-# Instalar alias primero
-llm_ask.sh --install
-
-# Luego recargar
 echo "¿Cuál es la capital de Francia?" | umbrosio
 
 # Procesar salida de un comando
@@ -220,14 +220,14 @@ df -h | umbrosio "Analiza el uso de disco"
 # Encadenar comandos
 cat config.json | umbrosio "Convierte este JSON a YAML"
 
-# El alias respeta el proveedor configurado
+# El comando respeta el proveedor configurado
 LLM_PROVIDER=mistral dmesg | umbrosio "Busca errores de hardware"
 ```
 
-También puedes usar el modo pipe sin instalar el alias:
+También puedes forzar el modo pipe con `--pipe`:
 
 ```bash
-df -h | llm_ask.sh --pipe "Analiza el uso de disco"
+df -h | umbrosio --pipe "Analiza el uso de disco"
 ```
 
 ## ⚙️ Configuración
@@ -296,7 +296,7 @@ LLM_ask/
 ├── install/
 │   └── install.sh      # Script de instalación
 └── src/
-    └── llm_ask.sh      # Script principal
+    └── umbrosio         # Script principal
 ```
 
 ## 🤝 Contribuir
