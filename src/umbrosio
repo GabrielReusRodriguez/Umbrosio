@@ -224,9 +224,7 @@ OPTIONS="a:e:s:p:m:k:u:PihI"
 LONGOPTS="ask:,explain:,create-script:,provider:,model:,api-key:,url:,pipe,install,install-bin,help"
 
 # Parseamos las opcioens
-TEMP=$(getopt -o "${OPTIONS}" -l "${LONGOPTS}" -n "$0" -- "$@")
-# Check si se ha parseado bien
-if [ $? != 0 ]; then
+if ! TEMP=$(getopt -o "${OPTIONS}" -l "${LONGOPTS}" -n "$0" -- "$@"); then
     echo "Error parsing the options" >&2
     exit 1
 fi

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Mock de curl para los tests de umbrosio.
+# Registra argumentos y cuerpo JSON, y devuelve una respuesta de chat completions.
+set -euo pipefail
+
+: "${CURL_LOG:?CURL_LOG no definido}"
+
+{
+  printf 'argc=%s\n' "$#"
+  printf 'arg=%s\n' "$@"
+} >> "${CURL_LOG}"
+
+url=""
+body=""
+prev=""
+for arg in "$@"; do
+  case "$arg" in
+    http://*|https://*)
+      url="$arg"
+      ;;
+  esac
+  if [ "${prev}" = "-d" ]; then
+    body="${arg}"
+  fi
+  prev="${arg}"
+done
+
+printf 'url=%s\n' "${url}" >> "${CURL_LOG}"
+printf '%s\n' "${body}" > "${CURL_LOG}.body"
+
+if [ "${CURL_FAIL:-0}" = "1" ]; then
+  echo '{"error":{"message":"fallo-mock"}}'
+  exit 1
+fi
+
+content="${CURL_RESPONSE:-respuesta-mock}"
+jq -n --arg content "${content}" '{
+  choices: [{ message: { content: $content } }]
+}'
