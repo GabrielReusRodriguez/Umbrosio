@@ -9,7 +9,7 @@ setup() {
 @test "muestra la ayuda con --help" {
   run "${UMBROSIO}" --help
   [ "$status" -eq 0 ]
-  [[ "$output" == *"umbrosio"* ]]
+  [[ "$output" == *"Umbrosio"* ]]
   [[ "$output" == *"--ask"* ]]
   [[ "$output" == *"--provider"* ]]
 }
