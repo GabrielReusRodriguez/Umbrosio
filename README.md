@@ -1,12 +1,12 @@
-# LLM Ask - Integración de Mistral AI y Lemonade AI con Bash
+# LLM Ask - Integración de Lemonade AI y Mistral AI con Bash
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**LLM Ask** es un script de Bash que permite interactuar con la API de Mistral AI o con un servidor de [Lemonade AI](https://lemonade-server.ai/) directamente desde la terminal. Facilita la integración de modelos de lenguaje grande (LLM) en flujos de trabajo de línea de comandos, automatización de scripts y generación de código.
+**LLM Ask** es un script de Bash que permite interactuar con un servidor de [Lemonade AI](https://lemonade-server.ai/) o con la API de Mistral AI directamente desde la terminal. Facilita la integración de modelos de lenguaje grande (LLM) en flujos de trabajo de línea de comandos, automatización de scripts y generación de código.
 
 ## 📋 Características
 
-- ✅ Realizar consultas genéricas a Mistral AI o a un servidor Lemonade
+- ✅ Realizar consultas genéricas a un servidor Lemonade o a Mistral AI
 - ✅ Explicar comandos de Linux
 - ✅ Generar scripts de Bash automáticamente
 - ✅ Instalar alias para uso como pipe
@@ -19,8 +19,8 @@ Antes de usar LLM Ask, asegúrate de tener instalados los siguientes paquetes:
 
 - **curl** - Para hacer peticiones HTTP a la API
 - **jq** - Para procesar respuestas JSON
+- **Servidor Lemonade** - Un servidor [Lemonade](https://lemonade-server.ai/) accesible y su API key (proveedor por defecto)
 - **API Key de Mistral** - Clave de autenticación para la API (si usas Mistral)
-- **Servidor Lemonade** - Un servidor [Lemonade](https://lemonade-server.ai/) accesible y su API key (si usas Lemonade)
 
 ### Instalación de dependencias en Ubuntu/Debian:
 
@@ -44,25 +44,28 @@ sudo pacman -S curl jq
 
 ### 1. Configurar el proveedor y la API Key
 
-Por defecto se usa Mistral. Crea una variable de entorno con tu clave de API:
+Por defecto se usa Lemonade. Indica la dirección del servidor, la API key de
+Lemonade y el modelo que tengas cargado:
 
 ```bash
 # Añade esto a tu ~/.bashrc o ~/.zshrc
-export MISTRAL_API_KEY="tu_api_key_aqui"
+export LEMONADE_URL="http://mi-servidor:8000"
+export LEMONADE_API_KEY="tu_api_key_de_lemonade"
+export LEMONADE_MODEL="Llama-3.2-1B-Instruct-Hybrid"
 
 # Recarga la configuración
 source ~/.bashrc
 ```
 
-Si quieres usar una LLM hosteada en un servidor Lemonade, indica el proveedor,
-la dirección del servidor y la API key de Lemonade:
+Si tu servidor Lemonade escucha en `http://localhost:8000` y no valida la API
+key, no necesitas configurar nada.
+
+Si quieres usar Mistral, indica el proveedor y tu clave de API:
 
 ```bash
 # Añade esto a tu ~/.bashrc o ~/.zshrc
-export LLM_PROVIDER="lemonade"
-export LEMONADE_URL="http://mi-servidor:8000"
-export LEMONADE_API_KEY="tu_api_key_de_lemonade"
-export LEMONADE_MODEL="Llama-3.2-1B-Instruct-Hybrid"
+export LLM_PROVIDER="mistral"
+export MISTRAL_API_KEY="tu_api_key_aqui"
 
 # Recarga la configuración
 source ~/.bashrc
@@ -131,7 +134,7 @@ Opciones:
   -s, --create-script DESC   Genera un script de Bash
   -P, --pipe [TEXT]          Lee la entrada estándar y la envía al LLM
   -i, --install              Instala el alias para pipe
-  -p, --provider PROVIDER    Proveedor a usar: mistral (por defecto) o lemonade
+  -p, --provider PROVIDER    Proveedor a usar: lemonade (por defecto) o mistral
   -m, --model MODEL          Modelo a usar
   -k, --api-key KEY          API key del proveedor
   -u, --url URL              URL del servidor del LLM
@@ -172,13 +175,17 @@ llm_ask.sh -s "generar un script que monitoree el uso de CPU"
 
 #### 🍋 Usar una LLM hosteada en un servidor Lemonade
 
-```bash
-# Con las variables de entorno de Lemonade ya exportadas
-llm_ask.sh --provider lemonade --ask "¿Qué es una NPU?"
+Es el proveedor por defecto, así que basta con tener sus variables de entorno
+exportadas:
 
-# Informando el servidor, la api key y el modelo por parámetro
-llm_ask.sh -p lemonade \
-    -u "http://mi-servidor:8000" \
+```bash
+llm_ask.sh --ask "¿Qué es una NPU?"
+```
+
+También puedes informar el servidor, la api key y el modelo por parámetro:
+
+```bash
+llm_ask.sh -u "http://mi-servidor:8000" \
     -k "tu_api_key_de_lemonade" \
     -m "Qwen3-0.6B-GGUF" \
     -a "Resume qué es Lemonade Server"
@@ -188,6 +195,15 @@ En `--url` puedes indicar tanto la dirección base del servidor
 (`http://mi-servidor:8000`) como el endpoint completo
 (`http://mi-servidor:8000/api/v1/chat/completions`); el script completa la ruta
 por ti.
+
+#### 🌩️ Usar Mistral AI
+
+```bash
+llm_ask.sh --provider mistral --ask "¿Cómo funciona git rebase?"
+
+# o con la api key y el modelo por parámetro
+llm_ask.sh -p mistral -k "tu_api_key" -m "mistral-small" -a "Explica el concepto de virtualización"
+```
 
 #### 🔗 Usar como pipe (requiere alias instalado)
 
@@ -205,7 +221,7 @@ df -h | umbrosio "Analiza el uso de disco"
 cat config.json | umbrosio "Convierte este JSON a YAML"
 
 # El alias respeta el proveedor configurado
-LLM_PROVIDER=lemonade dmesg | umbrosio "Busca errores de hardware"
+LLM_PROVIDER=mistral dmesg | umbrosio "Busca errores de hardware"
 ```
 
 También puedes usar el modo pipe sin instalar el alias:
@@ -222,53 +238,54 @@ Puedes personalizar el comportamiento del script modificando las siguientes vari
 
 | Variable | Descripción |
 | --- | --- |
-| `LLM_PROVIDER` | Proveedor a usar: `mistral` (por defecto) o `lemonade` |
+| `LLM_PROVIDER` | Proveedor a usar: `lemonade` (por defecto) o `mistral` |
 | `LLM_URL` | URL del endpoint, tiene prioridad sobre la del proveedor |
 | `LLM_MODEL` | Modelo a usar, tiene prioridad sobre el del proveedor |
 | `LLM_API_KEY` | API key, tiene prioridad sobre la del proveedor |
-| `MISTRAL_API_KEY` | API key de Mistral (requerida con el proveedor `mistral`) |
-| `MISTRAL_URL` | URL de la API de Mistral |
-| `MISTRAL_MODEL` | Modelo de Mistral |
 | `LEMONADE_API_KEY` | API key de Lemonade |
 | `LEMONADE_URL` | Dirección del servidor Lemonade o endpoint completo |
 | `LEMONADE_MODEL` | Modelo cargado en el servidor Lemonade |
+| `MISTRAL_API_KEY` | API key de Mistral (requerida con el proveedor `mistral`) |
+| `MISTRAL_URL` | URL de la API de Mistral |
+| `MISTRAL_MODEL` | Modelo de Mistral |
 
 ```bash
-# Ejemplo con Mistral
-export MISTRAL_API_KEY='tu_api_key'
-export MISTRAL_MODEL='mistral-small'
-
 # Ejemplo con Lemonade
-export LLM_PROVIDER='lemonade'
 export LEMONADE_URL='http://mi-servidor:8000'
 export LEMONADE_API_KEY='tu_api_key_de_lemonade'
 export LEMONADE_MODEL='Qwen3-0.6B-GGUF'
+
+# Ejemplo con Mistral
+export LLM_PROVIDER='mistral'
+export MISTRAL_API_KEY='tu_api_key'
+export MISTRAL_MODEL='mistral-small'
 ```
 
 ### Proveedores y valores por defecto
 
 | Proveedor | URL por defecto | Modelo por defecto | API key |
 | --- | --- | --- | --- |
+| `lemonade` (por defecto) | `http://localhost:8000/api/v1/chat/completions` | `Llama-3.2-1B-Instruct-Hybrid` | Opcional |
 | `mistral` | `https://api.mistral.ai/v1/chat/completions` | `mistral-tiny` | Obligatoria |
-| `lemonade` | `http://localhost:8000/api/v1/chat/completions` | `Llama-3.2-1B-Instruct-Hybrid` | Opcional |
 
 La API key de Lemonade es opcional porque un servidor local no la valida, pero si
 la informas se envía en la cabecera `Authorization: Bearer`.
 
 ### Modelos disponibles
 
+Lemonade: los modelos que tengas descargados en tu servidor, por ejemplo
+`Llama-3.2-1B-Instruct-Hybrid` (por defecto) o `Qwen3-0.6B-GGUF`. Puedes
+consultarlos con:
+
+```bash
+curl -s http://mi-servidor:8000/api/v1/models | jq -r '.data[].id'
+```
+
 Mistral:
 
 - `mistral-tiny` - Modelo más rápido y económico (por defecto)
 - `mistral-small` - Modelo equilibrado
 - `mistral-medium` - Modelo más potente
-
-Lemonade: los modelos que tengas descargados en tu servidor, por ejemplo
-`Llama-3.2-1B-Instruct-Hybrid` o `Qwen3-0.6B-GGUF`. Puedes consultarlos con:
-
-```bash
-curl -s http://mi-servidor:8000/api/v1/models | jq -r '.data[].id'
-```
 
 ## 📁 Estructura del proyecto
 
@@ -308,7 +325,7 @@ Este proyecto está licenciado bajo la **GNU General Public License v3.0** - ver
 
 ---
 
-**Nota:** Este script está probado en Linux Mint con Mistral y Lemonade, pero debería funcionar en cualquier distribución de Linux con Bash instalado.
+**Nota:** Este script está probado en Linux Mint con Lemonade y Mistral, pero debería funcionar en cualquier distribución de Linux con Bash instalado.
 
 *Made with ❤️ for the CLI community*
 

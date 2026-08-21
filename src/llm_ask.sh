@@ -5,10 +5,10 @@
 # Requisitos :
 #   curl
 #   jq
-# Probado con Linux mint, Mistral y Lemonade.
+# Probado con Linux mint, Lemonade y Mistral.
 
 # Proveedor por defecto. Se puede cambiar con la variable LLM_PROVIDER o con -p/--provider
-LLM_PROVIDER=${LLM_PROVIDER:-mistral}
+LLM_PROVIDER=${LLM_PROVIDER:-lemonade}
 
 # Valores por defecto de cada proveedor soportado
 MISTRAL_DEFAULT_URL='https://api.mistral.ai/v1/chat/completions'
@@ -53,7 +53,7 @@ configura_proveedor(){
             LLM_API_KEY="${LLM_API_KEY:-${LEMONADE_API_KEY}}"
             ;;
         *)
-            echo "Error, proveedor no soportado: ${LLM_PROVIDER}. Proveedores validos: mistral, lemonade" >&2
+            echo "Error, proveedor no soportado: ${LLM_PROVIDER}. Proveedores validos: lemonade, mistral" >&2
             exit 1
             ;;
     esac
@@ -146,7 +146,7 @@ help(){
     -s, --create-script DESC    Genera un script de Bash
     -P, --pipe [TEXTO]          Lee la entrada estándar y la envía al llm
     -i, --install               Instala el alias 'umbrosio' para usarlo como pipe
-    -p, --provider PROVEEDOR    Proveedor a usar: mistral (por defecto) o lemonade
+    -p, --provider PROVEEDOR    Proveedor a usar: lemonade (por defecto) o mistral
     -m, --model MODELO          Modelo a usar
     -k, --api-key CLAVE         Api key del proveedor
     -u, --url URL               Url del servidor del llm
