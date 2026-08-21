@@ -124,6 +124,41 @@ quitar_funcion_alias(){
     ' "${fichero}" > "${tmp}" && mv "${tmp}" "${fichero}"
 }
 
+# Instala umbrosio en /usr/local/bin para usarlo como comando del sistema
+install_bin(){
+    local origen
+    local destino="/usr/local/bin/umbrosio"
+    origen="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
+    if [ "${origen}" = "${destino}" ]; then
+        if [ ! -x "${destino}" ]; then
+            if [ -w "${destino}" ]; then
+                chmod +x "${destino}"
+            elif command -v sudo >/dev/null 2>&1; then
+                sudo chmod +x "${destino}"
+            else
+                echo "Error, no hay permisos para dar ejecución a ${destino}" >&2
+                exit 1
+            fi
+        fi
+        echo "umbrosio ya está instalado en ${destino}"
+        return
+    fi
+
+    if [ -w /usr/local/bin ]; then
+        cp "${origen}" "${destino}"
+        chmod +x "${destino}"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo cp "${origen}" "${destino}"
+        sudo chmod +x "${destino}"
+    else
+        echo "Error, no hay permisos para copiar umbrosio a ${destino}" >&2
+        exit 1
+    fi
+
+    echo "Se ha instalado umbrosio en ${destino}"
+}
+
 # Instala umbrosio en ~/.bash_aliases para poder invocarlo sin copiarlo a PATH
 install_alias(){
     # Siempre la ruta absoluta: si la funcion se llamara umbrosio y el comando
@@ -165,6 +200,7 @@ help(){
     -s, --create-script DESC    Genera un script de Bash
     -P, --pipe [TEXTO]          Lee la entrada estándar y la envía al llm
     -i, --install               Instala umbrosio en ~/.bash_aliases
+    -I, --install-bin           Instala umbrosio en /usr/local/bin
     -p, --provider PROVEEDOR    Proveedor a usar: lemonade (por defecto) o mistral
     -m, --model MODELO          Modelo a usar
     -k, --api-key CLAVE         Api key del proveedor
@@ -184,8 +220,8 @@ help(){
 
 
 # Inicio del programa en si.
-OPTIONS="a:e:s:p:m:k:u:Pih"
-LONGOPTS="ask:,explain:,create-script:,provider:,model:,api-key:,url:,pipe,install,help"
+OPTIONS="a:e:s:p:m:k:u:PihI"
+LONGOPTS="ask:,explain:,create-script:,provider:,model:,api-key:,url:,pipe,install,install-bin,help"
 
 # Parseamos las opcioens
 TEMP=$(getopt -o "${OPTIONS}" -l "${LONGOPTS}" -n "$0" -- "$@")
@@ -206,6 +242,10 @@ while true; do
             ;;
         -i|--install)
             action="install_alias"
+            shift
+            ;;
+        -I|--install-bin)
+            action="install_bin"
             shift
             ;;
         -e|--explain)
@@ -253,7 +293,7 @@ while true; do
     esac
 done
 
-# La ayuda y la instalacion del alias no necesitan proveedor configurado
+# La ayuda y las instalaciones no necesitan proveedor configurado
 if [ "$action" = 'help' ]; then
     help
     exit 0
@@ -261,6 +301,11 @@ fi
 
 if [ "$action" = 'install_alias' ]; then
     install_alias
+    exit 0
+fi
+
+if [ "$action" = 'install_bin' ]; then
+    install_bin
     exit 0
 fi
 

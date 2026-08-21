@@ -93,13 +93,15 @@ source ~/.bashrc
 
 #### Opción B: Instalación sistema (recomendado)
 
-Ejecuta el script de instalación:
+Instala el comando en `/usr/local/bin` desde el propio script:
 
 ```bash
-./install/install.sh
+./src/umbrosio --install-bin
+# o
+./src/umbrosio -I
 ```
 
-Esto copiará el script a `/usr/local/bin/umbrosio` para que esté disponible globalmente.
+Esto copiará el script a `/usr/local/bin/umbrosio` y le dará permisos de ejecución para que esté disponible globalmente. Si no tienes permisos de escritura en `/usr/local/bin`, se usará `sudo`.
 
 ### 3. Instalar alias (opcional)
 
@@ -135,6 +137,7 @@ Opciones:
   -s, --create-script DESC   Genera un script de Bash
   -P, --pipe [TEXT]          Lee la entrada estándar y la envía al LLM
   -i, --install              Instala umbrosio en ~/.bash_aliases
+  -I, --install-bin          Instala umbrosio en /usr/local/bin
   -p, --provider PROVIDER    Proveedor a usar: lemonade (por defecto) o mistral
   -m, --model MODEL          Modelo a usar
   -k, --api-key KEY          API key del proveedor
@@ -293,8 +296,6 @@ Mistral:
 LLM_ask/
 ├── README.md           # Documentación
 ├── LICENSE             # Licencia GPLv3
-├── install/
-│   └── install.sh      # Script de instalación
 └── src/
     └── umbrosio         # Script principal
 ```
