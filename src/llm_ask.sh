@@ -5,69 +5,124 @@
 # Requisitos :
 #   curl
 #   jq
-# Probado con Linux mint y Mistral.
+# Probado con Linux mint, Mistral y Lemonade.
 
-LLM_URL='https://api.mistral.ai/v1/chat/completions'
-LLM_MODEL='mistral-tiny'
-LLM_API_KEY=${MISTRAL_API_KEY}
+# Proveedor por defecto. Se puede cambiar con la variable LLM_PROVIDER o con -p/--provider
+LLM_PROVIDER=${LLM_PROVIDER:-mistral}
+
+# Valores por defecto de cada proveedor soportado
+MISTRAL_DEFAULT_URL='https://api.mistral.ai/v1/chat/completions'
+MISTRAL_DEFAULT_MODEL='mistral-tiny'
+LEMONADE_DEFAULT_URL='http://localhost:8000/api/v1/chat/completions'
+LEMONADE_DEFAULT_MODEL='Llama-3.2-1B-Instruct-Hybrid'
+
+# Lemonade se suele configurar dando la direccion del servidor, asi que aceptamos
+# tanto el host base como la url del endpoint completo.
+normaliza_url_lemonade(){
+    local url="${1%/}"
+    case "${url}" in
+        */chat/completions)
+            echo "${url}"
+            ;;
+        */api/v1)
+            echo "${url}/chat/completions"
+            ;;
+        *)
+            echo "${url}/api/v1/chat/completions"
+            ;;
+    esac
+}
+
+# Resuelve url, modelo y api key en funcion del proveedor elegido.
+# Las variables LLM_URL, LLM_MODEL y LLM_API_KEY tienen prioridad sobre los valores del proveedor.
+configura_proveedor(){
+    case "${LLM_PROVIDER}" in
+        mistral)
+            LLM_URL="${LLM_URL:-${MISTRAL_URL:-${MISTRAL_DEFAULT_URL}}}"
+            LLM_MODEL="${LLM_MODEL:-${MISTRAL_MODEL:-${MISTRAL_DEFAULT_MODEL}}}"
+            LLM_API_KEY="${LLM_API_KEY:-${MISTRAL_API_KEY}}"
+            if [ -z "${LLM_API_KEY}" ]; then
+                echo "Error, no se ha informado la api key de Mistral. Exporta MISTRAL_API_KEY o usa -k" >&2
+                exit 1
+            fi
+            ;;
+        lemonade)
+            LLM_URL="$(normaliza_url_lemonade "${LLM_URL:-${LEMONADE_URL:-${LEMONADE_DEFAULT_URL}}}")"
+            LLM_MODEL="${LLM_MODEL:-${LEMONADE_MODEL:-${LEMONADE_DEFAULT_MODEL}}}"
+            # La api key es opcional: un servidor lemonade local la ignora.
+            LLM_API_KEY="${LLM_API_KEY:-${LEMONADE_API_KEY}}"
+            ;;
+        *)
+            echo "Error, proveedor no soportado: ${LLM_PROVIDER}. Proveedores validos: mistral, lemonade" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Lanza la peticion al llm y devuelve el contenido de la respuesta
+llamada_llm(){
+    local content="$1"
+    local cabeceras=(-H "Content-Type: application/json")
+
+    # Solo informamos la api key si la tenemos, lemonade puede funcionar sin ella.
+    if [ -n "${LLM_API_KEY}" ]; then
+        cabeceras+=(-H "Authorization: Bearer ${LLM_API_KEY}")
+    fi
+
+    # Usamos jq para construir el JSON de forma segura
+    local json
+    json=$(jq -n --arg model "${LLM_MODEL}" --arg content "${content}" '{
+        model: $model,
+        messages: [{
+            role: "user",
+            content: $content
+        }],
+        stream: false
+    }')
+
+    curl -s "${LLM_URL}" \
+        "${cabeceras[@]}" \
+        -d "${json}" | jq -r '.choices[0].message.content'
+}
 
 # Funcion para preguntas genericas
 pregunta(){
-    local prompt="$*"
-    curl -s ${LLM_URL} \
-        -H "Authorization: Bearer ${LLM_API_KEY}" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "model": "'${LLM_MODEL}'",
-            "messages": [{"role": "user", "content": "'"$prompt"'"}]
-        }' | jq -r '.choices[0].message.content'
+    llamada_llm "$*"
 }
 
 # Funcion para explicar los comandos bash
 explicar_comando(){
-    local comando="$1"
-    curl -s ${LLM_URL} \
-        -H "Authorization: Bearer ${LLM_API_KEY}" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "model": "'${LLM_MODEL}'",
-            "messages": [{"role": "user", "content": "Explica el comando '"$comando"' en Linux"}]
-        }' | jq -r '.choices[0].message.content'
+    llamada_llm "Explica el comando $1 en Linux"
 }
 
 # Genera un script de bash
 crear_script(){
-    local descripcion="$*"
-    curl -s ${LLM_URL} \
-        -H "Authorization: Bearer ${LLM_API_KEY}" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "model": "'${LLM_MODEL}'",
-            "messages": [{"role": "user", "content": "Genera un script de Bash que '"$descripcion"'"}]
-        }' | jq -r '.choices[0].message.content'
+    llamada_llm "Genera un script de Bash que $*"
+}
+
+# Modo pipe: concatena el prompt con lo que llegue por la entrada estandar
+modo_pipe(){
+    local prompt="$*"
+    local input
+    local salto=$'\n'
+    input="$(cat)"
+    llamada_llm "${prompt}${prompt:+${salto}}${input}"
 }
 
 # Instala el alias para poder usarlo como pipe
 install_alias(){
+    # Si el script está instalado en el sistema lo invocamos por su nombre,
+    # si no, usamos la ruta desde la que se está ejecutando.
+    local comando
+    if command -v llm > /dev/null 2>&1; then
+        comando="llm"
+    else
+        comando="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+    fi
+
     local alias="# Definimos los alias del usuario
 mistral() { # Alias installed
-    local prompt=\"\$*\"
-    local input=\"\$(cat)\"
-    local content=\"\${prompt}\${input}\"
-
-    # Usamos jq para construir el JSON de forma segura
-    local json=\$(jq -n --arg content \"\$content\" '{
-        model: \"${LLM_MODEL}\",
-        messages: [{
-            role: \"user\",
-            content: \$content
-        }]
-    }')
-
-    curl -s \"${LLM_URL}\" \\
-        -H \"Authorization: Bearer \${MISTRAL_API_KEY}\" \\
-        -H \"Content-Type: application/json\" \\
-        -d \"\$json\" | jq -r \".choices[0].message.content\"
+    ${comando} --pipe -- \"\$@\"
 }"
     # Si no existe el .bash_aliases, lo creamos si existe, solo modificará la fecha y hora de actualziacion
     touch ~/.bash_aliases
@@ -80,15 +135,31 @@ help(){
     local ayuda="llm_ask
 --------
     Script para integrar llms con bash.
-    Usage: llm_ask -aeshi
+    Usage: llm_ask [OPCIONES]
+
+    -a, --ask TEXTO             Realiza una pregunta genérica
+    -e, --explain COMANDO       Explica un comando de Linux
+    -s, --create-script DESC    Genera un script de Bash
+    -P, --pipe [TEXTO]          Lee la entrada estándar y la envía al llm
+    -i, --install               Instala el alias para usarlo como pipe
+    -p, --provider PROVEEDOR    Proveedor a usar: mistral (por defecto) o lemonade
+    -m, --model MODELO          Modelo a usar
+    -k, --api-key CLAVE         Api key del proveedor
+    -u, --url URL               Url del servidor del llm
+    -h, --help                  Muestra esta ayuda
+
+    Variables de entorno:
+    LLM_PROVIDER, LLM_URL, LLM_MODEL, LLM_API_KEY
+    MISTRAL_API_KEY, MISTRAL_URL, MISTRAL_MODEL
+    LEMONADE_API_KEY, LEMONADE_URL, LEMONADE_MODEL
     "
     echo -e "$ayuda"
 }
 
 
 # Inicio del programa en si.
-OPTIONS="a:e:s:ih"
-LONGOPTS="ask:,explain:,create-script:,install,help"
+OPTIONS="a:e:s:p:m:k:u:Pih"
+LONGOPTS="ask:,explain:,create-script:,provider:,model:,api-key:,url:,pipe,install,help"
 
 # Parseamos las opcioens
 TEMP=$(getopt -o "${OPTIONS}" -l "${LONGOPTS}" -n "$0" -- "$@")
@@ -121,6 +192,26 @@ while true; do
             query="$2"
             shift 2
             ;;
+        -P|--pipe)
+            action="pipe"
+            shift
+            ;;
+        -p|--provider)
+            LLM_PROVIDER="$2"
+            shift 2
+            ;;
+        -m|--model)
+            LLM_MODEL="$2"
+            shift 2
+            ;;
+        -k|--api-key)
+            LLM_API_KEY="$2"
+            shift 2
+            ;;
+        -u|--url)
+            LLM_URL="$2"
+            shift 2
+            ;;
         -h|--help)
             action="help"
             shift
@@ -136,8 +227,9 @@ while true; do
     esac
 done
 
-if [ "$action" = "ask" ]; then
-    pregunta $query
+# La ayuda y la instalacion del alias no necesitan proveedor configurado
+if [ "$action" = 'help' ]; then
+    help
     exit 0
 fi
 
@@ -146,18 +238,25 @@ if [ "$action" = 'install_alias' ]; then
     exit 0
 fi
 
+configura_proveedor
+
+if [ "$action" = "ask" ]; then
+    pregunta "$query"
+    exit 0
+fi
+
 if [ "$action" = 'explain' ]; then
-    explicar_comando $command
+    explicar_comando "$command"
     exit 0
 fi
 
 if [ "$action" = 'create_script' ]; then
-    crear_script $query
+    crear_script "$query"
     exit 0
 fi
 
-if [ "$action" = 'help' ]; then
-    help
+if [ "$action" = 'pipe' ]; then
+    modo_pipe "$@"
     exit 0
 fi
 
