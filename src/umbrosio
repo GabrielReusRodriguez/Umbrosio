@@ -147,7 +147,7 @@ install_bin(){
 }
 
 help(){
-    local ayuda="umbrosio
+    local ayuda="Umbrosio
 --------
     Script para integrar llms con bash.
     Usage: umbrosio [OPCIONES]

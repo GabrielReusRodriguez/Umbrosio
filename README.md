@@ -1,21 +1,21 @@
-# LLM Ask - Integración de Lemonade AI y Mistral AI con Bash
+# Umbrosio - Integración de Lemonade AI y Mistral AI con Bash
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**LLM Ask** es un script de Bash que permite interactuar con un servidor de [Lemonade AI](https://lemonade-server.ai/) o con la API de Mistral AI directamente desde la terminal. Facilita la integración de modelos de lenguaje grande (LLM) en flujos de trabajo de línea de comandos, automatización de scripts y generación de código.
+**Umbrosio** es un script de Bash que permite interactuar con un servidor de [Lemonade AI](https://lemonade-server.ai/) o con la API de Mistral AI directamente desde la terminal. Facilita la integración de modelos de lenguaje grande (LLM) en flujos de trabajo de línea de comandos, automatización de scripts y generación de código. El comando de terminal es `umbrosio`.
 
 ## 📋 Características
 
 - ✅ Realizar consultas genéricas a un servidor Lemonade o a Mistral AI
 - ✅ Explicar comandos de Linux
 - ✅ Generar scripts de Bash automáticamente
-- ✅ Instalar el comando `umbrosio` para usarlo como pipe
+- ✅ Instalar el comando `umbrosio` para usarlo desde cualquier terminal
 - ✅ Integración nativa con la terminal
 - ✅ Configuración personalizable
 
 ## 🚀 Requisitos Previos
 
-Antes de usar LLM Ask, asegúrate de tener instalados los siguientes paquetes:
+Antes de usar Umbrosio, asegúrate de tener instalados los siguientes paquetes:
 
 - **curl** - Para hacer peticiones HTTP a la API
 - **jq** - Para procesar respuestas JSON
@@ -271,11 +271,11 @@ Mistral:
 ## 📁 Estructura del proyecto
 
 ```
-LLM_ask/
+LLM_ask/                # repositorio de Umbrosio
 ├── README.md           # Documentación
 ├── LICENSE             # Licencia GPLv3
 └── src/
-    └── umbrosio         # Script principal
+    └── umbrosio         # Comando principal
 ```
 
 ## 🤝 Contribuir
