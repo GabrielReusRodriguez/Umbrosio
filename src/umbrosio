@@ -1,0 +1,342 @@
+#!/bin/env bash
+
+# Author: Gabriel Reus
+# https://github.com/GabrielReusRodriguez/
+# Requisitos :
+#   curl
+#   jq
+# Probado con Linux mint, Lemonade y Mistral.
+
+# Proveedor por defecto. Se puede cambiar con la variable LLM_PROVIDER o con -p/--provider
+LLM_PROVIDER=${LLM_PROVIDER:-lemonade}
+
+# Valores por defecto de cada proveedor soportado
+MISTRAL_DEFAULT_URL='https://api.mistral.ai/v1/chat/completions'
+MISTRAL_DEFAULT_MODEL='mistral-tiny'
+LEMONADE_DEFAULT_URL='http://localhost:8000/api/v1/chat/completions'
+LEMONADE_DEFAULT_MODEL='Llama-3.2-1B-Instruct-Hybrid'
+
+# Lemonade se suele configurar dando la direccion del servidor, asi que aceptamos
+# tanto el host base como la url del endpoint completo.
+normaliza_url_lemonade(){
+    local url="${1%/}"
+    case "${url}" in
+        */chat/completions)
+            echo "${url}"
+            ;;
+        */api/v1)
+            echo "${url}/chat/completions"
+            ;;
+        *)
+            echo "${url}/api/v1/chat/completions"
+            ;;
+    esac
+}
+
+# Resuelve url, modelo y api key en funcion del proveedor elegido.
+# Las variables LLM_URL, LLM_MODEL y LLM_API_KEY tienen prioridad sobre los valores del proveedor.
+configura_proveedor(){
+    case "${LLM_PROVIDER}" in
+        mistral)
+            LLM_URL="${LLM_URL:-${MISTRAL_URL:-${MISTRAL_DEFAULT_URL}}}"
+            LLM_MODEL="${LLM_MODEL:-${MISTRAL_MODEL:-${MISTRAL_DEFAULT_MODEL}}}"
+            LLM_API_KEY="${LLM_API_KEY:-${MISTRAL_API_KEY}}"
+            if [ -z "${LLM_API_KEY}" ]; then
+                echo "Error, no se ha informado la api key de Mistral. Exporta MISTRAL_API_KEY o usa -k" >&2
+                exit 1
+            fi
+            ;;
+        lemonade)
+            LLM_URL="$(normaliza_url_lemonade "${LLM_URL:-${LEMONADE_URL:-${LEMONADE_DEFAULT_URL}}}")"
+            LLM_MODEL="${LLM_MODEL:-${LEMONADE_MODEL:-${LEMONADE_DEFAULT_MODEL}}}"
+            # La api key es opcional: un servidor lemonade local la ignora.
+            LLM_API_KEY="${LLM_API_KEY:-${LEMONADE_API_KEY}}"
+            ;;
+        *)
+            echo "Error, proveedor no soportado: ${LLM_PROVIDER}. Proveedores validos: lemonade, mistral" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Lanza la peticion al llm y devuelve el contenido de la respuesta
+llamada_llm(){
+    local content="$1"
+    local cabeceras=(-H "Content-Type: application/json")
+
+    # Solo informamos la api key si la tenemos, lemonade puede funcionar sin ella.
+    if [ -n "${LLM_API_KEY}" ]; then
+        cabeceras+=(-H "Authorization: Bearer ${LLM_API_KEY}")
+    fi
+
+    # Usamos jq para construir el JSON de forma segura
+    local json
+    json=$(jq -n --arg model "${LLM_MODEL}" --arg content "${content}" '{
+        model: $model,
+        messages: [{
+            role: "user",
+            content: $content
+        }],
+        stream: false
+    }')
+
+    curl -s "${LLM_URL}" \
+        "${cabeceras[@]}" \
+        -d "${json}" | jq -r '.choices[0].message.content'
+}
+
+# Funcion para preguntas genericas
+pregunta(){
+    llamada_llm "$*"
+}
+
+# Funcion para explicar los comandos bash
+explicar_comando(){
+    llamada_llm "Explica el comando $1 en Linux"
+}
+
+# Genera un script de bash
+crear_script(){
+    llamada_llm "Genera un script de Bash que $*"
+}
+
+# Modo pipe: concatena el prompt con lo que llegue por la entrada estandar
+modo_pipe(){
+    local prompt="$*"
+    local input
+    local salto=$'\n'
+    input="$(cat)"
+    llamada_llm "${prompt}${prompt:+${salto}}${input}"
+}
+
+# Quita de ~/.bash_aliases una funcion marcada con "# Alias installed"
+quitar_funcion_alias(){
+    local nombre="$1"
+    local fichero="$2"
+    local tmp
+    [ -f "${fichero}" ] || return 0
+    tmp="$(mktemp)"
+    awk -v n="${nombre}() { # Alias installed" '
+        $0 == n {skip=1; next}
+        skip && /^}/ {skip=0; next}
+        skip {next}
+        {print}
+    ' "${fichero}" > "${tmp}" && mv "${tmp}" "${fichero}"
+}
+
+# Instala umbrosio en /usr/local/bin para usarlo como comando del sistema
+install_bin(){
+    local origen
+    local destino="/usr/local/bin/umbrosio"
+    origen="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
+    if [ "${origen}" = "${destino}" ]; then
+        if [ ! -x "${destino}" ]; then
+            if [ -w "${destino}" ]; then
+                chmod +x "${destino}"
+            elif command -v sudo >/dev/null 2>&1; then
+                sudo chmod +x "${destino}"
+            else
+                echo "Error, no hay permisos para dar ejecución a ${destino}" >&2
+                exit 1
+            fi
+        fi
+        echo "umbrosio ya está instalado en ${destino}"
+        return
+    fi
+
+    if [ -w /usr/local/bin ]; then
+        cp "${origen}" "${destino}"
+        chmod +x "${destino}"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo cp "${origen}" "${destino}"
+        sudo chmod +x "${destino}"
+    else
+        echo "Error, no hay permisos para copiar umbrosio a ${destino}" >&2
+        exit 1
+    fi
+
+    echo "Se ha instalado umbrosio en ${destino}"
+}
+
+# Instala umbrosio en ~/.bash_aliases para poder invocarlo sin copiarlo a PATH
+install_alias(){
+    # Siempre la ruta absoluta: si la funcion se llamara umbrosio y el comando
+    # tambien, usar solo el nombre provocaria recursion.
+    local comando
+    comando="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
+    local alias="# Definimos los alias del usuario
+umbrosio() { # Alias installed
+    \"${comando}\" \"\$@\"
+}"
+    # Si no existe el .bash_aliases, lo creamos si existe, solo modificará la fecha y hora de actualziacion
+    touch ~/.bash_aliases
+
+    # Si ya habia una funcion umbrosio (por ejemplo la del modo pipe antiguo),
+    # la sustituimos para que no se pise con el comando.
+    if grep -q "umbrosio() { # Alias installed" ~/.bash_aliases; then
+        quitar_funcion_alias "umbrosio" ~/.bash_aliases
+        echo "Se ha actualizado el alias umbrosio"
+    else
+        echo "Se ha instalado el alias umbrosio"
+    fi
+    echo -e "$alias" >> ~/.bash_aliases
+
+    # El alias se llamaba mistral en versiones anteriores, avisamos para que lo borre.
+    if grep -q "mistral() { # Alias installed" ~/.bash_aliases; then
+        echo "Aviso: el antiguo alias 'mistral' sigue en ~/.bash_aliases, puedes borrarlo a mano" >&2
+    fi
+}
+
+help(){
+    local ayuda="umbrosio
+--------
+    Script para integrar llms con bash.
+    Usage: umbrosio [OPCIONES]
+
+    -a, --ask TEXTO             Realiza una pregunta genérica
+    -e, --explain COMANDO       Explica un comando de Linux
+    -s, --create-script DESC    Genera un script de Bash
+    -P, --pipe [TEXTO]          Lee la entrada estándar y la envía al llm
+    -i, --install               Instala umbrosio en ~/.bash_aliases
+    -I, --install-bin           Instala umbrosio en /usr/local/bin
+    -p, --provider PROVEEDOR    Proveedor a usar: lemonade (por defecto) o mistral
+    -m, --model MODELO          Modelo a usar
+    -k, --api-key CLAVE         Api key del proveedor
+    -u, --url URL               Url del servidor del llm
+    -h, --help                  Muestra esta ayuda
+
+    Si llega texto por la entrada estándar y no se indica otra acción,
+    se usa el modo pipe.
+
+    Variables de entorno:
+    LLM_PROVIDER, LLM_URL, LLM_MODEL, LLM_API_KEY
+    MISTRAL_API_KEY, MISTRAL_URL, MISTRAL_MODEL
+    LEMONADE_API_KEY, LEMONADE_URL, LEMONADE_MODEL
+    "
+    echo -e "$ayuda"
+}
+
+
+# Inicio del programa en si.
+OPTIONS="a:e:s:p:m:k:u:PihI"
+LONGOPTS="ask:,explain:,create-script:,provider:,model:,api-key:,url:,pipe,install,install-bin,help"
+
+# Parseamos las opcioens
+TEMP=$(getopt -o "${OPTIONS}" -l "${LONGOPTS}" -n "$0" -- "$@")
+# Check si se ha parseado bien
+if [ $? != 0 ]; then
+    echo "Error parsing the options" >&2
+    exit 1
+fi
+
+eval set -- "$TEMP"
+
+while true; do
+    case "$1" in
+        -a|--ask)
+            action="ask" 
+            query="$2"
+            shift 2
+            ;;
+        -i|--install)
+            action="install_alias"
+            shift
+            ;;
+        -I|--install-bin)
+            action="install_bin"
+            shift
+            ;;
+        -e|--explain)
+            action="explain"
+            command="$2"
+            shift 2
+            ;;
+        -s|--create-script)
+            action="create_script"
+            query="$2"
+            shift 2
+            ;;
+        -P|--pipe)
+            action="pipe"
+            shift
+            ;;
+        -p|--provider)
+            LLM_PROVIDER="$2"
+            shift 2
+            ;;
+        -m|--model)
+            LLM_MODEL="$2"
+            shift 2
+            ;;
+        -k|--api-key)
+            LLM_API_KEY="$2"
+            shift 2
+            ;;
+        -u|--url)
+            LLM_URL="$2"
+            shift 2
+            ;;
+        -h|--help)
+            action="help"
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Unsupported option: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# La ayuda y las instalaciones no necesitan proveedor configurado
+if [ "$action" = 'help' ]; then
+    help
+    exit 0
+fi
+
+if [ "$action" = 'install_alias' ]; then
+    install_alias
+    exit 0
+fi
+
+if [ "$action" = 'install_bin' ]; then
+    install_bin
+    exit 0
+fi
+
+configura_proveedor
+
+if [ "$action" = "ask" ]; then
+    pregunta "$query"
+    exit 0
+fi
+
+if [ "$action" = 'explain' ]; then
+    explicar_comando "$command"
+    exit 0
+fi
+
+if [ "$action" = 'create_script' ]; then
+    crear_script "$query"
+    exit 0
+fi
+
+if [ "$action" = 'pipe' ]; then
+    modo_pipe "$@"
+    exit 0
+fi
+
+# Si no se ha indicado accion pero hay datos en stdin, usamos el modo pipe
+if [ -z "$action" ] && [ ! -t 0 ]; then
+    modo_pipe "$@"
+    exit 0
+fi
+
+# En caso que la accion on esté soportada => Error
+echo "Error, executed without action" >&2
+exit 1

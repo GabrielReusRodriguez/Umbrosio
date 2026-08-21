@@ -1,15 +1,15 @@
-# LLM Ask - Integración de Mistral AI con Bash
+# LLM Ask - Integración de Lemonade AI y Mistral AI con Bash
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**LLM Ask** es un script de Bash que permite interactuar con la API de Mistral AI directamente desde la terminal. Facilita la integración de modelos de lenguaje grande (LLM) en flujos de trabajo de línea de comandos, automatización de scripts y generación de código.
+**LLM Ask** es un script de Bash que permite interactuar con un servidor de [Lemonade AI](https://lemonade-server.ai/) o con la API de Mistral AI directamente desde la terminal. Facilita la integración de modelos de lenguaje grande (LLM) en flujos de trabajo de línea de comandos, automatización de scripts y generación de código.
 
 ## 📋 Características
 
-- ✅ Realizar consultas genéricas a Mistral AI
+- ✅ Realizar consultas genéricas a un servidor Lemonade o a Mistral AI
 - ✅ Explicar comandos de Linux
 - ✅ Generar scripts de Bash automáticamente
-- ✅ Instalar alias para uso como pipe
+- ✅ Instalar el comando `umbrosio` para usarlo como pipe
 - ✅ Integración nativa con la terminal
 - ✅ Configuración personalizable
 
@@ -19,7 +19,8 @@ Antes de usar LLM Ask, asegúrate de tener instalados los siguientes paquetes:
 
 - **curl** - Para hacer peticiones HTTP a la API
 - **jq** - Para procesar respuestas JSON
-- **API Key de Mistral** - Clave de autenticación para la API
+- **Servidor Lemonade** - Un servidor [Lemonade](https://lemonade-server.ai/) accesible y su API key (proveedor por defecto)
+- **API Key de Mistral** - Clave de autenticación para la API (si usas Mistral)
 
 ### Instalación de dependencias en Ubuntu/Debian:
 
@@ -41,12 +42,29 @@ sudo pacman -S curl jq
 
 ## 🔧 Instalación
 
-### 1. Configurar la API Key
+### 1. Configurar el proveedor y la API Key
 
-Crea una variable de entorno con tu clave de API de Mistral:
+Por defecto se usa Lemonade. Indica la dirección del servidor, la API key de
+Lemonade y el modelo que tengas cargado:
 
 ```bash
 # Añade esto a tu ~/.bashrc o ~/.zshrc
+export LEMONADE_URL="http://mi-servidor:8000"
+export LEMONADE_API_KEY="tu_api_key_de_lemonade"
+export LEMONADE_MODEL="Llama-3.2-1B-Instruct-Hybrid"
+
+# Recarga la configuración
+source ~/.bashrc
+```
+
+Si tu servidor Lemonade escucha en `http://localhost:8000` y no valida la API
+key, no necesitas configurar nada.
+
+Si quieres usar Mistral, indica el proveedor y tu clave de API:
+
+```bash
+# Añade esto a tu ~/.bashrc o ~/.zshrc
+export LLM_PROVIDER="mistral"
 export MISTRAL_API_KEY="tu_api_key_aqui"
 
 # Recarga la configuración
@@ -65,53 +83,66 @@ source ~/.bashrc
 
 2. Haz el script ejecutable:
    ```bash
-   chmod +x src/llm_ask.sh
+   chmod +x src/umbrosio
    ```
 
 3. Ejecuta directamente:
    ```bash
-   ./src/llm_ask.sh -h
+   ./src/umbrosio -h
    ```
 
 #### Opción B: Instalación sistema (recomendado)
 
-Ejecuta el script de instalación:
+Instala el comando en `/usr/local/bin` desde el propio script:
 
 ```bash
-./install/install.sh
+./src/umbrosio --install-bin
+# o
+./src/umbrosio -I
 ```
 
-Esto copiará el script a `/usr/local/bin/llm` para que esté disponible globalmente.
+Esto copiará el script a `/usr/local/bin/umbrosio` y le dará permisos de ejecución para que esté disponible globalmente. Si no tienes permisos de escritura en `/usr/local/bin`, se usará `sudo`.
 
 ### 3. Instalar alias (opcional)
 
-Para instalar el alias `mistral` que permite usar el script como pipe:
+Si no has copiado el script a `/usr/local/bin`, puedes instalar `umbrosio` en tu `~/.bash_aliases` para invocarlo desde cualquier sitio:
 
 ```bash
-llm_ask.sh --install
+./src/umbrosio --install
 # o
-llm_ask.sh -i
+./src/umbrosio -i
 ```
 
-Esto añadirá el alias a tu `~/.bash_aliases`. Necesitarás recargar tu terminal:
+Necesitarás recargar tu terminal:
 
 ```bash
 source ~/.bash_aliases
 ```
+
+> **Nota:** en versiones anteriores el alias de pipe se llamaba `mistral`. Si ya lo tenías
+> instalado, el script te avisará para que borres a mano la función `mistral()` de
+> tu `~/.bash_aliases`. Si tenías un alias `umbrosio` que forzaba el modo pipe,
+> `--install` lo sustituye para que no se pise con el comando.
 
 ## 📖 Uso
 
 ### Comandos disponibles
 
 ```
-llm_ask [OPCIONES]
+umbrosio [OPCIONES]
 
 Opciones:
-  -a, --ask TEXT          Realiza una pregunta genérica
-  -e, --explain COMMAND   Explica un comando de Linux
-  -s, --create-script DESC  Genera un script de Bash
-  -i, --install           Instala el alias para pipe
-  -h, --help              Muestra esta ayuda
+  -a, --ask TEXT             Realiza una pregunta genérica
+  -e, --explain COMMAND      Explica un comando de Linux
+  -s, --create-script DESC   Genera un script de Bash
+  -P, --pipe [TEXT]          Lee la entrada estándar y la envía al LLM
+  -i, --install              Instala umbrosio en ~/.bash_aliases
+  -I, --install-bin          Instala umbrosio en /usr/local/bin
+  -p, --provider PROVIDER    Proveedor a usar: lemonade (por defecto) o mistral
+  -m, --model MODEL          Modelo a usar
+  -k, --api-key KEY          API key del proveedor
+  -u, --url URL              URL del servidor del LLM
+  -h, --help                 Muestra esta ayuda
 ```
 
 ### Ejemplos prácticos
@@ -120,46 +151,86 @@ Opciones:
 
 ```bash
 # Pregunta directa
-llm_ask.sh --ask "¿Cómo funciona git rebase?"
+umbrosio --ask "¿Cómo funciona git rebase?"
 
 # o
-llm_ask.sh -a "Explica el concepto de virtualización"
+umbrosio -a "Explica el concepto de virtualización"
 ```
 
 #### 📚 Explicar un comando de Linux
 
 ```bash
 # Explicar comando ls
-llm_ask.sh --explain "ls -la"
+umbrosio --explain "ls -la"
 
 # o
-llm_ask.sh -e "grep -r pattern ."
+umbrosio -e "grep -r pattern ."
 ```
 
 #### 💻 Generar un script de Bash
 
 ```bash
 # Generar un script de backup
-llm_ask.sh --create-script "crear un script de backup de bases de datos MySQL"
+umbrosio --create-script "crear un script de backup de bases de datos MySQL"
 
 # o
-llm_ask.sh -s "generar un script que monitoree el uso de CPU"
+umbrosio -s "generar un script que monitoree el uso de CPU"
 ```
 
-#### 🔗 Usar como pipe (requiere alias instalado)
+#### 🍋 Usar una LLM hosteada en un servidor Lemonade
+
+Es el proveedor por defecto, así que basta con tener sus variables de entorno
+exportadas:
 
 ```bash
-# Instalar alias primero
-llm_ask.sh --install
+umbrosio --ask "¿Qué es una NPU?"
+```
 
-# Luego recargar
-echo "¿Cuál es la capital de Francia?" | mistral
+También puedes informar el servidor, la api key y el modelo por parámetro:
+
+```bash
+umbrosio -u "http://mi-servidor:8000" \
+    -k "tu_api_key_de_lemonade" \
+    -m "Qwen3-0.6B-GGUF" \
+    -a "Resume qué es Lemonade Server"
+```
+
+En `--url` puedes indicar tanto la dirección base del servidor
+(`http://mi-servidor:8000`) como el endpoint completo
+(`http://mi-servidor:8000/api/v1/chat/completions`); el script completa la ruta
+por ti.
+
+#### 🌩️ Usar Mistral AI
+
+```bash
+umbrosio --provider mistral --ask "¿Cómo funciona git rebase?"
+
+# o con la api key y el modelo por parámetro
+umbrosio -p mistral -k "tu_api_key" -m "mistral-small" -a "Explica el concepto de virtualización"
+```
+
+#### 🔗 Usar como pipe
+
+Si llega texto por la entrada estándar, `umbrosio` lo envía al LLM. No hace falta
+instalar ningún alias aparte:
+
+```bash
+echo "¿Cuál es la capital de Francia?" | umbrosio
 
 # Procesar salida de un comando
-df -h | mistral "Analiza el uso de disco"
+df -h | umbrosio "Analiza el uso de disco"
 
 # Encadenar comandos
-cat config.json | mistral "Convierte este JSON a YAML"
+cat config.json | umbrosio "Convierte este JSON a YAML"
+
+# El comando respeta el proveedor configurado
+LLM_PROVIDER=mistral dmesg | umbrosio "Busca errores de hardware"
+```
+
+También puedes forzar el modo pipe con `--pipe`:
+
+```bash
+df -h | umbrosio --pipe "Analiza el uso de disco"
 ```
 
 ## ⚙️ Configuración
@@ -168,18 +239,52 @@ cat config.json | mistral "Convierte este JSON a YAML"
 
 Puedes personalizar el comportamiento del script modificando las siguientes variables:
 
+| Variable | Descripción |
+| --- | --- |
+| `LLM_PROVIDER` | Proveedor a usar: `lemonade` (por defecto) o `mistral` |
+| `LLM_URL` | URL del endpoint, tiene prioridad sobre la del proveedor |
+| `LLM_MODEL` | Modelo a usar, tiene prioridad sobre el del proveedor |
+| `LLM_API_KEY` | API key, tiene prioridad sobre la del proveedor |
+| `LEMONADE_API_KEY` | API key de Lemonade |
+| `LEMONADE_URL` | Dirección del servidor Lemonade o endpoint completo |
+| `LEMONADE_MODEL` | Modelo cargado en el servidor Lemonade |
+| `MISTRAL_API_KEY` | API key de Mistral (requerida con el proveedor `mistral`) |
+| `MISTRAL_URL` | URL de la API de Mistral |
+| `MISTRAL_MODEL` | Modelo de Mistral |
+
 ```bash
-# URL de la API (por defecto: https://api.mistral.ai/v1/chat/completions)
-export LLM_URL='https://api.mistral.ai/v1/chat/completions'
+# Ejemplo con Lemonade
+export LEMONADE_URL='http://mi-servidor:8000'
+export LEMONADE_API_KEY='tu_api_key_de_lemonade'
+export LEMONADE_MODEL='Qwen3-0.6B-GGUF'
 
-# Modelo a usar (por defecto: mistral-tiny)
-export LLM_MODEL='mistral-small'
-
-# Clave API (requerida)
+# Ejemplo con Mistral
+export LLM_PROVIDER='mistral'
 export MISTRAL_API_KEY='tu_api_key'
+export MISTRAL_MODEL='mistral-small'
 ```
 
+### Proveedores y valores por defecto
+
+| Proveedor | URL por defecto | Modelo por defecto | API key |
+| --- | --- | --- | --- |
+| `lemonade` (por defecto) | `http://localhost:8000/api/v1/chat/completions` | `Llama-3.2-1B-Instruct-Hybrid` | Opcional |
+| `mistral` | `https://api.mistral.ai/v1/chat/completions` | `mistral-tiny` | Obligatoria |
+
+La API key de Lemonade es opcional porque un servidor local no la valida, pero si
+la informas se envía en la cabecera `Authorization: Bearer`.
+
 ### Modelos disponibles
+
+Lemonade: los modelos que tengas descargados en tu servidor, por ejemplo
+`Llama-3.2-1B-Instruct-Hybrid` (por defecto) o `Qwen3-0.6B-GGUF`. Puedes
+consultarlos con:
+
+```bash
+curl -s http://mi-servidor:8000/api/v1/models | jq -r '.data[].id'
+```
+
+Mistral:
 
 - `mistral-tiny` - Modelo más rápido y económico (por defecto)
 - `mistral-small` - Modelo equilibrado
@@ -191,10 +296,8 @@ export MISTRAL_API_KEY='tu_api_key'
 LLM_ask/
 ├── README.md           # Documentación
 ├── LICENSE             # Licencia GPLv3
-├── install/
-│   └── install.sh      # Script de instalación
 └── src/
-    └── llm_ask.sh      # Script principal
+    └── umbrosio         # Script principal
 ```
 
 ## 🤝 Contribuir
@@ -223,7 +326,7 @@ Este proyecto está licenciado bajo la **GNU General Public License v3.0** - ver
 
 ---
 
-**Nota:** Este script está probado en Linux Mint pero debería funcionar en cualquier distribución de Linux con Bash instalado.
+**Nota:** Este script está probado en Linux Mint con Lemonade y Mistral, pero debería funcionar en cualquier distribución de Linux con Bash instalado.
 
 *Made with ❤️ for the CLI community*
 
