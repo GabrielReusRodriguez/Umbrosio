@@ -96,33 +96,12 @@ source ~/.bashrc
 Instala el comando en `/usr/local/bin` desde el propio script:
 
 ```bash
-./src/umbrosio --install-bin
-# o
-./src/umbrosio -I
-```
-
-Esto copiará el script a `/usr/local/bin/umbrosio` y le dará permisos de ejecución para que esté disponible globalmente. Si no tienes permisos de escritura en `/usr/local/bin`, se usará `sudo`.
-
-### 3. Instalar alias (opcional)
-
-Si no has copiado el script a `/usr/local/bin`, puedes instalar `umbrosio` en tu `~/.bash_aliases` para invocarlo desde cualquier sitio:
-
-```bash
 ./src/umbrosio --install
 # o
 ./src/umbrosio -i
 ```
 
-Necesitarás recargar tu terminal:
-
-```bash
-source ~/.bash_aliases
-```
-
-> **Nota:** en versiones anteriores el alias de pipe se llamaba `mistral`. Si ya lo tenías
-> instalado, el script te avisará para que borres a mano la función `mistral()` de
-> tu `~/.bash_aliases`. Si tenías un alias `umbrosio` que forzaba el modo pipe,
-> `--install` lo sustituye para que no se pise con el comando.
+Esto copiará el script a `/usr/local/bin/umbrosio` y le dará permisos de ejecución para que esté disponible globalmente. Si no tienes permisos de escritura en `/usr/local/bin`, se usará `sudo`.
 
 ## 📖 Uso
 
@@ -136,8 +115,7 @@ Opciones:
   -e, --explain COMMAND      Explica un comando de Linux
   -s, --create-script DESC   Genera un script de Bash
   -P, --pipe [TEXT]          Lee la entrada estándar y la envía al LLM
-  -i, --install              Instala umbrosio en ~/.bash_aliases
-  -I, --install-bin          Instala umbrosio en /usr/local/bin
+  -i, --install              Instala umbrosio en /usr/local/bin
   -p, --provider PROVIDER    Proveedor a usar: lemonade (por defecto) o mistral
   -m, --model MODEL          Modelo a usar
   -k, --api-key KEY          API key del proveedor
@@ -211,8 +189,8 @@ umbrosio -p mistral -k "tu_api_key" -m "mistral-small" -a "Explica el concepto d
 
 #### 🔗 Usar como pipe
 
-Si llega texto por la entrada estándar, `umbrosio` lo envía al LLM. No hace falta
-instalar ningún alias aparte:
+Si llega texto por la entrada estándar, `umbrosio` lo envía al LLM. Con el comando
+en PATH no hace falta nada más:
 
 ```bash
 echo "¿Cuál es la capital de Francia?" | umbrosio

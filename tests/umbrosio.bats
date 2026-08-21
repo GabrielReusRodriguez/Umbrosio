@@ -129,25 +129,45 @@ setup() {
   [[ "$output" == *"api key de Mistral"* ]]
 }
 
-@test "install crea el alias en HOME temporal" {
-  run "${UMBROSIO}" --install
+@test "la ayuda documenta --install en /usr/local/bin" {
+  run "${UMBROSIO}" --help
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Se ha instalado el alias umbrosio"* ]]
-  [ -f "${HOME}/.bash_aliases" ]
-  grep -q "umbrosio() { # Alias installed" "${HOME}/.bash_aliases"
-  grep -q "${UMBROSIO}" "${HOME}/.bash_aliases"
+  [[ "$output" == *"--install"* ]]
+  [[ "$output" == *"/usr/local/bin"* ]]
+  [[ "$output" != *".bash_aliases"* ]]
+  [[ "$output" != *"--install-bin"* ]]
 }
 
-@test "install sustituye un alias umbrosio previo" {
-  cat > "${HOME}/.bash_aliases" <<'EOF'
-umbrosio() { # Alias installed
-    echo antiguo
+@test "install-bin ya no es una opcion valida" {
+  run "${UMBROSIO}" --install-bin
+  [ "$status" -ne 0 ]
 }
-EOF
+
+@test "install copia umbrosio al directorio de binarios" {
+  export UMBROSIO_BIN_DIR="${BATS_TEST_TMPDIR}/usr/local/bin"
+  mkdir -p "${UMBROSIO_BIN_DIR}"
   run "${UMBROSIO}" --install
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Se ha actualizado el alias umbrosio"* ]]
-  [ "$(grep -c 'umbrosio() { # Alias installed' "${HOME}/.bash_aliases")" -eq 1 ]
-  grep -q "${UMBROSIO}" "${HOME}/.bash_aliases"
-  ! grep -q "echo antiguo" "${HOME}/.bash_aliases"
+  [[ "$output" == *"Se ha instalado umbrosio en ${UMBROSIO_BIN_DIR}/umbrosio"* ]]
+  [ -x "${UMBROSIO_BIN_DIR}/umbrosio" ]
+  cmp -s "${UMBROSIO}" "${UMBROSIO_BIN_DIR}/umbrosio"
+  [ ! -f "${HOME}/.bash_aliases" ]
+}
+
+@test "install con -i copia umbrosio al directorio de binarios" {
+  export UMBROSIO_BIN_DIR="${BATS_TEST_TMPDIR}/usr/local/bin"
+  mkdir -p "${UMBROSIO_BIN_DIR}"
+  run "${UMBROSIO}" -i
+  [ "$status" -eq 0 ]
+  [ -x "${UMBROSIO_BIN_DIR}/umbrosio" ]
+}
+
+@test "install indica que ya esta instalado si se ejecuta desde el destino" {
+  export UMBROSIO_BIN_DIR="${BATS_TEST_TMPDIR}/usr/local/bin"
+  mkdir -p "${UMBROSIO_BIN_DIR}"
+  cp "${UMBROSIO}" "${UMBROSIO_BIN_DIR}/umbrosio"
+  chmod +x "${UMBROSIO_BIN_DIR}/umbrosio"
+  run "${UMBROSIO_BIN_DIR}/umbrosio" --install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"umbrosio ya está instalado en ${UMBROSIO_BIN_DIR}/umbrosio"* ]]
 }
