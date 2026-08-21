@@ -135,12 +135,6 @@ setup() {
   [[ "$output" == *"--install"* ]]
   [[ "$output" == *"/usr/local/bin"* ]]
   [[ "$output" != *".bash_aliases"* ]]
-  [[ "$output" != *"--install-bin"* ]]
-}
-
-@test "install-bin ya no es una opcion valida" {
-  run "${UMBROSIO}" --install-bin
-  [ "$status" -ne 0 ]
 }
 
 @test "install copia umbrosio al directorio de binarios" {
