@@ -121,14 +121,18 @@ install_alias(){
     fi
 
     local alias="# Definimos los alias del usuario
-mistral() { # Alias installed
+umbrosio() { # Alias installed
     ${comando} --pipe -- \"\$@\"
 }"
     # Si no existe el .bash_aliases, lo creamos si existe, solo modificará la fecha y hora de actualziacion
     touch ~/.bash_aliases
     # Checkear si está instalado el alias. SI no lo está lo instalamos.
-    grep -q "mistral() { # Alias installed" ~/.bash_aliases && echo "El alias ya está instalado" || echo -e "$alias" >> ~/.bash_aliases
+    grep -q "umbrosio() { # Alias installed" ~/.bash_aliases && echo "El alias ya está instalado" || echo -e "$alias" >> ~/.bash_aliases
 
+    # El alias se llamaba mistral en versiones anteriores, avisamos para que lo borre.
+    if grep -q "mistral() { # Alias installed" ~/.bash_aliases; then
+        echo "Aviso: el antiguo alias 'mistral' sigue en ~/.bash_aliases, puedes borrarlo a mano" >&2
+    fi
 }
 
 help(){
@@ -141,7 +145,7 @@ help(){
     -e, --explain COMANDO       Explica un comando de Linux
     -s, --create-script DESC    Genera un script de Bash
     -P, --pipe [TEXTO]          Lee la entrada estándar y la envía al llm
-    -i, --install               Instala el alias para usarlo como pipe
+    -i, --install               Instala el alias 'umbrosio' para usarlo como pipe
     -p, --provider PROVEEDOR    Proveedor a usar: mistral (por defecto) o lemonade
     -m, --model MODELO          Modelo a usar
     -k, --api-key CLAVE         Api key del proveedor
